@@ -1,0 +1,65 @@
+# Continuous integration.
+#
+# What this can and cannot check is worth stating, because a green tick that
+# implies more than it establishes is the failure mode this project is about.
+#
+# CAN run in a clone:
+#   * the test suite (which is one of the twelve completion-gate checks);
+#   * the offline closed-loop demonstration, end to end;
+#   * the artifact checksums the demonstration just wrote -- so a run that is not
+#     byte-deterministic fails here rather than silently drifting.
+#
+# CANNOT run in a clone:
+#   * the completion gate. It lives in the workspace engineering record
+#     (`.agent/`), which is a *sibling* of this repository, not part of it. The
+#     job says so instead of reporting a pass it did not earn.
+
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Test suite
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python -m pytest -q -p no:cacheprovider
+
+      - name: Offline closed-loop demonstration
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python scripts/demo_closed_loop.py --target ADV-11
+
+      - name: Verify the checksums the demonstration just wrote
+        run: |
+          cd artifacts/repair/cycle-ADV-11-P-0001
+          sha256sum -c checksums.sha256
+
+      - name: Completion gate (workspace record only)
+        run: |
+          if [ -f ../.agent/eval/scripts/verify.py ]; then
+            PYTHONDONTWRITEBYTECODE=1 python ../.agent/eval/scripts/verify.py
+          else
+            echo "::notice::completion gate not present. It lives in the workspace record (.agent/), which is not part of this repository. The suite above is one of its twelve checks; the other eleven cannot run in a clone."
+          fi
