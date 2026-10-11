@@ -1,0 +1,343 @@
+# Hardened demonstration policy bundle.
+#
+# This bundle is the OUTPUT of the closed-loop improvement run. It is not
+# hand-authored as a "better" policy: it is the baseline bundle plus one
+# minimal, typed change, and it exists here so the improvement can be
+# re-verified from a clean checkout.
+#
+# THE CHANGE (relative to 2026.10-demo.1)
+# ---------------------------------------
+#   rule: SAFE-002
+#   added POSITIVE patterns:
+#     - "speech went funny"
+#     - "arm feels heavy"
+#     - "arm is heavy"
+#     - "trouble speaking"
+#   added NEGATION guard:
+#     - "not having trouble speaking"
+#     - "arm does not feel heavy"
+#   added HISTORICAL guard:
+#     - "had a mini stroke last year"
+#
+# Why both additions are required, and why this is the interesting part:
+# adding only the positive patterns fixes S04 but raises the false-escalation
+# rate on the counterfactual-negative holdout (people describing a *past,
+# resolved* episode, or explicitly denying the symptom). The negative guards are
+# what keep the fix from over-triggering. The acceptance gate rejects the
+# positive-only variant, which is why the counterfactual test exists.
+#
+# Version bumping rather than in-place editing is enforced by the policy
+# registry: re-registering a version with a changed hash is refused.
+
+policy_version: "2026.10-demo.2"
+jurisdiction: "US_DEMO"
+intended_use: "administrative_scheduling"
+effective_from: "2026-10-06"
+approved_by:
+  - "clinical_safety_officer (simulated approval, see approval.json)"
+rollback_target: "2026.10-demo.1"
+default_locale: "en-US"
+
+rules:
+  - rule_id: "SAFE-001"
+    owner: "clinical_safety_officer"
+    rationale: >-
+      Administrative intake must never precede safety routing. Cardiac-sounding
+      presentations are routed to emergency services rather than scheduled.
+    action: "urgent_handoff"
+    jurisdiction: "US_DEMO"
+    effective_from: "2026-10-01"
+    review_due: "2027-04-01"
+    evidence_source: "clinician-approved sentinel set v1 (synthetic, demo only)"
+    test_ids: ["S03", "HV-01", "MV-01"]
+    rollback_target: "2026.09-demo.0"
+    mutation_permissions: []
+    message_template_id: "emergency_unmonitored_us"
+    trigger_patterns:
+      - phrase: "chest pain"
+        polarity: "POSITIVE"
+        category: "MEDICAL_EMERGENCY"
+      - phrase: "chest tightness"
+        polarity: "POSITIVE"
+        category: "MEDICAL_EMERGENCY"
+      - phrase: "pressure in my chest"
+        polarity: "POSITIVE"
+        category: "MEDICAL_EMERGENCY"
+      - phrase: "crushing chest"
+        polarity: "POSITIVE"
+        category: "MEDICAL_EMERGENCY"
+      - phrase: "cannot breathe"
+        polarity: "POSITIVE"
+        category: "MEDICAL_EMERGENCY"
+      - phrase: "can't breathe"
+        polarity: "POSITIVE"
+        category: "MEDICAL_EMERGENCY"
+      - phrase: "shortness of breath"
+        polarity: "POSITIVE"
+        category: "MEDICAL_EMERGENCY"
+      - phrase: "do not have chest pain"
+        polarity: "NEGATION"
+      - phrase: "no chest pain"
+        polarity: "NEGATION"
+      - phrase: "had a heart attack five years ago"
+        polarity: "HISTORICAL"
+      - phrase: "my mother has chest pain"
+        polarity: "THIRD_PERSON"
+      - phrase: "what counts as an emergency"
+        polarity: "META"
+
+  - rule_id: "SAFE-002"
+    owner: "clinical_safety_officer"
+    rationale: >-
+      Sudden neurologic deficits are time-critical and must not be routed through
+      routine scheduling. Lay descriptions are included because patients rarely
+      use clinical vocabulary, and the plain-language phrasing is a recognised
+      presentation of the same concern.
+    action: "urgent_handoff"
+    jurisdiction: "US_DEMO"
+    effective_from: "2026-10-01"
+    review_due: "2027-04-01"
+    evidence_source: "clinician-approved sentinel set v2 (synthetic, demo only)"
+    test_ids: ["HV-02", "S04", "MV-02", "CN-01", "CN-02", "CN-03"]
+    rollback_target: "2026.10-demo.1"
+    mutation_permissions: []
+    message_template_id: "emergency_unmonitored_us"
+    trigger_patterns:
+      - phrase: "face is drooping"
+        polarity: "POSITIVE"
+        category: "MEDICAL_EMERGENCY"
+      - phrase: "slurred speech"
+        polarity: "POSITIVE"
+        category: "MEDICAL_EMERGENCY"
+      - phrase: "cannot move my arm"
+        polarity: "POSITIVE"
+        category: "MEDICAL_EMERGENCY"
+      - phrase: "sudden numbness on one side"
+        polarity: "POSITIVE"
+        category: "MEDICAL_EMERGENCY"
+      - phrase: "sudden weakness on one side"
+        polarity: "POSITIVE"
+        category: "MEDICAL_EMERGENCY"
+      - phrase: "sudden vision loss"
+        polarity: "POSITIVE"
+        category: "MEDICAL_EMERGENCY"
+
+      # ---- the patch: clinician-approved lay descriptions ----------------
+      - phrase: "speech went funny"
+        polarity: "POSITIVE"
+        category: "MEDICAL_EMERGENCY"
+      - phrase: "arm feels heavy"
+        polarity: "POSITIVE"
+        category: "MEDICAL_EMERGENCY"
+      - phrase: "arm is heavy"
+        polarity: "POSITIVE"
+        category: "MEDICAL_EMERGENCY"
+      - phrase: "trouble speaking"
+        polarity: "POSITIVE"
+        category: "MEDICAL_EMERGENCY"
+
+      # ---- the counterfactual guards: prevent over-triggering -------------
+      # A fix that fires more often is only an improvement if it does not fire
+      # on people who are describing an absence, a past event, or someone else.
+      # Each guard is authored to *contain* the positive phrase it denies, which
+      # is how the engine's rule-scoped containment suppresses it.
+      #
+      # NEGATION: the patient is stating the symptom is absent.
+      # Each phrase is written as it actually appears after normalisation and
+      # *contains* the positive it denies, so the engine's rule-scoped
+      # containment suppresses that positive. Guards are deliberately verbose:
+      # a short guard like "no slurred speech" would not match the very common
+      # "i do not have slurred speech".
+      - phrase: "do not have slurred speech"
+        polarity: "NEGATION"
+      - phrase: "don't have slurred speech"
+        polarity: "NEGATION"
+      - phrase: "no slurred speech"
+        polarity: "NEGATION"
+      - phrase: "not slurred speech"
+        polarity: "NEGATION"
+      - phrase: "face is not drooping"
+        polarity: "NEGATION"
+      - phrase: "no face drooping"
+        polarity: "NEGATION"
+      - phrase: "do not have sudden weakness on one side"
+        polarity: "NEGATION"
+      - phrase: "no sudden weakness on one side"
+        polarity: "NEGATION"
+      - phrase: "do not have sudden numbness on one side"
+        polarity: "NEGATION"
+      - phrase: "no sudden numbness on one side"
+        polarity: "NEGATION"
+      - phrase: "not having trouble speaking"
+        polarity: "NEGATION"
+      - phrase: "no trouble speaking"
+        polarity: "NEGATION"
+      - phrase: "arm does not feel heavy"
+        polarity: "NEGATION"
+      - phrase: "arm is not heavy"
+        polarity: "NEGATION"
+      - phrase: "speech is not funny"
+        polarity: "NEGATION"
+      # HISTORICAL: the event happened and resolved.
+      - phrase: "had a mini stroke last year"
+        polarity: "HISTORICAL"
+      - phrase: "had trouble speaking last year"
+        polarity: "HISTORICAL"
+      # THIRD_PERSON: the symptom belongs to someone else. Without this, a
+      # patient describing a relative's stroke would receive an emergency
+      # message about themselves.
+      - phrase: "my father had trouble speaking"
+        polarity: "THIRD_PERSON"
+      - phrase: "my mother had trouble speaking"
+        polarity: "THIRD_PERSON"
+      - phrase: "his speech went funny"
+        polarity: "THIRD_PERSON"
+      - phrase: "her speech went funny"
+        polarity: "THIRD_PERSON"
+      - phrase: "his arm feels heavy"
+        polarity: "THIRD_PERSON"
+      - phrase: "her arm feels heavy"
+        polarity: "THIRD_PERSON"
+      # META: the patient is asking about the concept, not reporting it.
+      - phrase: "what does trouble speaking mean"
+        polarity: "META"
+
+  - rule_id: "SAFE-003"
+    owner: "clinical_safety_officer"
+    rationale: >-
+      Behavioural crisis requires a locale-correct crisis service, which is a
+      different resource from emergency dispatch.
+    action: "crisis_handoff"
+    jurisdiction: "US_DEMO"
+    effective_from: "2026-10-01"
+    review_due: "2027-04-01"
+    evidence_source: "clinician-approved sentinel set v1 (synthetic, demo only)"
+    test_ids: ["S05", "HV-03"]
+    rollback_target: "2026.09-demo.0"
+    mutation_permissions: []
+    message_template_id: "crisis_unmonitored_us"
+    trigger_patterns:
+      - phrase: "want to kill myself"
+        polarity: "POSITIVE"
+        category: "BEHAVIOURAL_CRISIS"
+      - phrase: "thinking about suicide"
+        polarity: "POSITIVE"
+        category: "BEHAVIOURAL_CRISIS"
+      - phrase: "harm myself"
+        polarity: "POSITIVE"
+        category: "BEHAVIOURAL_CRISIS"
+      - phrase: "end my life"
+        polarity: "POSITIVE"
+        category: "BEHAVIOURAL_CRISIS"
+      - phrase: "do not want to kill myself"
+        polarity: "NEGATION"
+
+  - rule_id: "MED-001"
+    owner: "clinic_medical_director"
+    rationale: >-
+      Medication decisions belong to the responsible clinical team. A scheduling
+      agent relaying advice could cause direct harm, so every medication question
+      raised in the context of a procedure routes to clinical review.
+    action: "human_clinical_review"
+    jurisdiction: "US_DEMO"
+    effective_from: "2026-10-01"
+    review_due: "2027-01-01"
+    evidence_source: "clinic medication-question routing policy (synthetic, demo only)"
+    test_ids: ["S08", "PG-02"]
+    rollback_target: "2026.09-demo.0"
+    mutation_permissions: []
+    prohibited_claims:
+      - "stop_medication"
+      - "change_dose"
+      - "start_medication"
+      - "skip_medication"
+      - "bridge_medication"
+    trigger_patterns:
+      - phrase: "should i stop my blood thinner"
+        polarity: "POSITIVE"
+      - phrase: "should i stop taking"
+        polarity: "POSITIVE"
+      - phrase: "can i skip my medication"
+        polarity: "POSITIVE"
+      - phrase: "do i need to stop my medication"
+        polarity: "POSITIVE"
+      - phrase: "should i change my dose"
+        polarity: "POSITIVE"
+
+  - rule_id: "CONSENT-001"
+    owner: "privacy_legal"
+    rationale: >-
+      Consent, confidentiality and proxy authority vary by jurisdiction and by
+      service. Rather than generalise a rule that is wrong somewhere, ambiguous
+      proxy authority routes to trained staff without disclosing the appointment
+      reason to an unverified proxy.
+    action: "specialist_handoff"
+    jurisdiction: "US_DEMO"
+    effective_from: "2026-10-01"
+    review_due: "2027-01-01"
+    evidence_source: "privacy counsel review note (synthetic, demo only)"
+    test_ids: ["S06", "PV-01", "PV-02"]
+    rollback_target: "2026.09-demo.0"
+    mutation_permissions: []
+
+  - rule_id: "OPS-001"
+    owner: "operations_manager"
+    rationale: >-
+      Procedure preparation instructions may only be relayed when the clinic has
+      issued a confirmed order for that service. The agent relays; it does not
+      originate.
+    action: "require_acknowledgement"
+    jurisdiction: "US_DEMO"
+    effective_from: "2026-10-01"
+    review_due: "2027-04-01"
+    evidence_source: "approved preparation instruction set (synthetic, demo only)"
+    test_ids: ["S07"]
+    rollback_target: "2026.09-demo.0"
+    mutation_permissions: []
+    applies_to_service_ids: ["svc_endoscopy"]
+
+message_templates:
+  - template_id: "emergency_unmonitored_us"
+    locale: "en-US"
+    directs_to_emergency_services: true
+    crisis_service_number: "988"
+    emergency_number: "911"
+    text: >-
+      What you have described may need urgent medical attention. Please call 911
+      or go to your nearest emergency department now. I have not contacted anyone
+      on your behalf and I cannot arrange emergency care. I will let the clinic
+      team know so a person can follow up with you.
+
+  - template_id: "crisis_unmonitored_us"
+    locale: "en-US"
+    directs_to_emergency_services: true
+    crisis_service_number: "988"
+    emergency_number: "911"
+    text: >-
+      I am concerned about what you have shared. Please contact the 988 Suicide
+      and Crisis Lifeline by calling or texting 988, or call 911 if you are in
+      immediate danger. I have not contacted anyone on your behalf. A member of
+      the clinic team will follow up with you.
+
+  - template_id: "clinical_review_pending"
+    locale: "en-US"
+    text: >-
+      That question needs a member of the clinical team rather than the
+      scheduling service. I have flagged it for review and will not give any
+      advice about your medicines myself. A clinician will get back to you about
+      this. Is there anything else about your appointment I can help with?
+
+  - template_id: "proxy_scope_handoff"
+    locale: "en-US"
+    text: >-
+      I am not able to continue with this request in the scheduling service. A
+      member of staff will follow up with you about what can be shared and what
+      can be arranged. I will not discuss any appointment details until that is
+      confirmed.
+
+  - template_id: "prep_acknowledgement"
+    locale: "en-US"
+    text: >-
+      This procedure has preparation instructions from the clinic. I can read
+      them to you exactly as the clinic recorded them and ask you to confirm you
+      have heard them. I cannot change or interpret them.

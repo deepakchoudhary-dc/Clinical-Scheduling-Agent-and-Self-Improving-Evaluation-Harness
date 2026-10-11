@@ -1,0 +1,42 @@
+# ---------------------------------------------------------------------------
+# Push policy: ONLY README.md is a pushable markdown file.
+# Every other .md in this repository is working material and stays local.
+# ---------------------------------------------------------------------------
+*.md
+!README.md
+
+# Engineering/planning/agent records live OUTSIDE this repository (../.agent,
+# ../.workbuddy-ai) and are neither part of it nor pushable from it. Session
+# notes and the workspace-only documentation set stay local as well.
+.agent/
+.workbuddy-ai/
+SESSION-*.md
+
+# Generated evidence. Artifacts are reproducible from a clean checkout, so they
+# are not committed. (An earlier version of this file excepted a frozen example
+# bundle; no such bundle exists, so the exception is gone rather than left
+# pointing at a path a clone would not find.)
+artifacts/*
+
+# Local environment and caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# Local, never-committed material
+.env
+*.local.db
+*.sqlite
+*.sqlite3
+!data/*.sqlite
+
+# Secrets: nothing here should ever be committable.
+.env
+*.pem
+*.key
+credentials.json

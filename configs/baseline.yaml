@@ -1,0 +1,42 @@
+# Evaluation run configuration (plan.md section 18).
+#
+#   csched eval --config configs/baseline.yaml
+#
+# Every field here is a *behavioural input*. The run manifest fingerprints exactly
+# these values, so two runs land in the same artifact directory only if this file
+# is identical -- which is what makes "was this the same experiment?" answerable
+# by path alone. Changing anything here is a different experiment.
+
+suite: core            # core | adversarial | metamorphic | holdout | all
+seed: 0
+temperature: 0.0
+max_turns: 12
+out: artifacts/eval
+
+# ---------------------------------------------------------------------------
+# Model endpoint
+# ---------------------------------------------------------------------------
+#
+# `csched eval` refuses to run without one. That is deliberate: the harness never
+# substitutes a built-in model, because a run whose model is unknown is not
+# evidence. Prefer setting CLINICAL_SCHEDULER_MODEL_ENDPOINT in the environment
+# (see .env.example) so a credential never lands in a committed file -- this file
+# names the *environment variable* that holds the key, never the key itself.
+#
+# Uncomment exactly one block.
+#
+# model:                                   # local, no key
+#   provider: ollama
+#   base_url: http://127.0.0.1:11434
+#   model_id: qwen2.5:7b-instruct
+#
+# model:                                   # local, no key
+#   provider: llamacpp
+#   base_url: http://127.0.0.1:8080
+#   model_id: local-gguf
+#
+# model:                                   # hosted
+#   provider: openai_compatible
+#   base_url: https://api.openai.com/v1
+#   model_id: gpt-4o-mini
+#   api_key_env: OPENAI_API_KEY            # the NAME of the variable, not the key
