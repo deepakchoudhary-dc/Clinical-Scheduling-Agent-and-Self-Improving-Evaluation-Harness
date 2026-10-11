@@ -259,7 +259,13 @@ class PolicyEngine:
         tokens = [re.escape(token) for token in normalised.split()]
         if not tokens:
             return re.compile(r"(?!)")  # never matches; an empty phrase is refused upstream
-        return re.compile(rf"(?<!\w){r'\s*'.join(tokens)}(?!\w)")
+        # The separator is bound to a name because a backslash may not appear
+        # inside an f-string's expression part before Python 3.12 (PEP 701),
+        # and 3.11 is this project's floor. Writing ``r'\s*'`` inline in the
+        # expression was a SyntaxError there -- at import time, in the module
+        # almost every test collects through -- so the constant carries it.
+        separator = r"\s*"
+        return re.compile(rf"(?<!\w){separator.join(tokens)}(?!\w)")
 
     # ------------------------------------------------------------------
     # Loading
